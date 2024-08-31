@@ -14,7 +14,46 @@ from bs4 import BeautifulSoup
 from mastodon import Mastodon
 from datetime import datetime, timezone, MINYEAR
 
+import warnings
+from bs4 import MarkupResemblesLocatorWarning
+warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
+
 DEFAULT_CONFIG_FILE = os.path.join("~", ".feediverse")
+
+# Sample municipalities set
+municipalities = {'Abington', 'Ambler', 'Bridgeport', 'Bryn Athyn', 'Cheltenham', 
+                  'Conshohocken', 'Douglass', 'East Greenville', 'East Norriton', 
+                  'Franconia', 'Green Lane', 'Hatboro', 'Hatfield', 'Horsham', 
+                  'Jenkintown', 'Lansdale', 'Limerick', 'Lower Frederick', 
+                  'Lower Gwynedd', 'Lower Merion', 'Lower Moreland', 
+                  'Lower Pottsgrove', 'Lower Providence', 'Lower Salford', 
+                  'Marlborough', 'Montgomery', 'Narberth', 'New Hanover', 
+                  'Norristown', 'North Wales', 'Pennsburg', 'Perkiomen', 
+                  'Plymouth', 'Pottstown', 'Red Hill', 'Rockledge', 
+                  'Royersford', 'Salford', 'Schwenksville', 'Skippack', 
+                  'Souderton', 'Springfield', 'Telford', 'Towamencin', 
+                  'Trappe', 'Upper Dublin', 'Upper Frederick', 'Upper Gwynedd', 
+                  'Upper Hanover', 'Upper Merion', 'Upper Moreland', 
+                  'Upper Pottsgrove', 'Upper Providence', 'Upper Salford', 
+                  'West Conshohocken', 'West Norriton', 'West Pottsgrove', 
+                  'Whitemarsh', 'Whitpain', 'Worcester'}
+
+def capitalize_and_remove_space(s):
+    return ''.join(word.capitalize() for word in s.split())
+
+def find_tags(text):
+    tags = []
+    
+    for municipality in municipalities:
+        # Convert to uppercase to check the condition
+        search_string = municipality.upper() + ";"
+        
+        if search_string in text:
+            # Add the formatted tag to the set
+            tag = '#' + capitalize_and_remove_space(municipality)
+            tags.append(tag)
+    
+    return tags
 
 def main():
     parser = argparse.ArgumentParser()
@@ -114,7 +153,7 @@ def get_feed(feed_url, last_update):
         yield get_entry(entry)
 
 def update_dupes(dupes, new):
-   if len(dupes) > 10:
+   if len(dupes) > 100:
      del dupes[0]
    dupes.append(new)
 
@@ -125,10 +164,11 @@ def get_entry(entry):
         hashtags.append('#{}'.format(t))
     summary = entry.get('summary', '')
     content = entry.get('content', '')
+    hashtags = hashtags + find_tags(summary)
     comments = entry.get('comments', '')
     if content:
         content = cleanup(content[0].get('value', ''))
-    url = entry.id
+    url = entry.summary
     return {
         'url': url,
         'link': entry.link,
@@ -143,7 +183,7 @@ def get_entry(entry):
     }
 
 def cleanup(text):
-    html = BeautifulSoup(text, 'html.parser')
+    html = BeautifulSoup(text, 'lxml')
     text = html.get_text()
     text = re.sub('\xa0+', ' ', text)
     text = re.sub('  +', ' ', text)
@@ -244,3 +284,4 @@ def setup(config_file):
 
 if __name__ == "__main__":
     main()
+
